@@ -42,14 +42,31 @@ new_content="${new_content}\n  ]\n}"
 
 echo -e "$new_content" | sudo tee /etc/docker/daemon.json > /dev/null
 
-while true; do
-    read -p "Restart Docker now? (y/N): "
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+
+function restart_docker {
+    if [[ `/sbin/init --version` =~ systemd ]]; then
         sudo systemctl reload docker
         sudo systemctl enable docker
         sudo systemctl start docker
+    elif [[ `/sbin/init --version` =~ upstart ]]; then
+        sudo initctl reload-configuration
+        sudo initctl start docker
+    elif [[ `/sbin/init --version` =~ runit ]]; then
+        sudo sv reload docker
+        sudo sv enable docker
+        sudo sv start docker
+    else
+        echo "${RED} Sorry, your system is not supported."
+    fi
+}
+
+
+while true; do
+    read -p "Restart Docker now? (y/N): "
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
 		echo
-		echo -e "${GREEN}Docker restarted.${NOCOLOR}"
+        restart_docker
+		echo -e "${GREEN} Docker restarted.${NOCOLOR}"
         break
     elif [[ $REPLY =~ ^[Nn]$ ]] || [[ -z $REPLY ]]; then
 		echo
@@ -57,6 +74,3 @@ while true; do
         break
 	fi
 done
-
-sudo systemctl enable docker
-sudo systemctl start docker
